@@ -1,5 +1,3 @@
-// require("dotenv").config({ path: __dirname + '../.env' })
-// const MUSIC_TOKEN = process.env.YOUTUBE_KEY
 const axios = require("axios")
 
 let getMusic = async (songName, MUSIC_TOKEN) => {
