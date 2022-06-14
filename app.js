@@ -1,7 +1,6 @@
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require("@discordjs/voice")
 const { Client, Intents } = require("discord.js")
-const ytdl = require("ytdl-core")
-const getMusic = require("./src/getMusic")
+const { createAudioPlayer, AudioPlayerStatus } = require("@discordjs/voice")
+const playMusic = require("./utils/playMusic")
 const fs = require("fs")
 const client = new Client({
     intents: [
@@ -15,6 +14,9 @@ const defaultPrefix = "~"
 require("dotenv").config()
 const TOKEN = process.env.DISCORD_TOKEN
 const MUSIC_TOKEN = process.env.YOUTUBE_KEY
+let isPlaying = false
+let isPaused = false
+const player = createAudioPlayer()
 
 
 function isMsgForBot(msg) {
@@ -30,8 +32,8 @@ client.on("ready", () => {
 
 client.on("messageCreate", async (msg) => {
     if (isMsgForBot(msg)) {
-        const args = msg.content.slice(defaultPrefix.length).trim().split(' ');
-        const command = args.shift().toLowerCase();
+        const args = msg.content.slice(defaultPrefix.length).trim().split(' ')
+        const command = args.shift().toLowerCase()
         if (command === "ping" && args.length === 0)
             await msg.reply("pong!")
         else if (command === "play") {
@@ -41,24 +43,32 @@ client.on("messageCreate", async (msg) => {
             }
             let nameByUser = args.join(" ")
             try {
-                let songData = await getMusic(nameByUser, MUSIC_TOKEN)
-                let url = `https://www.youtube.com/watch?v=${songData.id}`
-                const connection = await joinVoiceChannel({
-                    channelId: msg.member.voice.channel.id,
-                    guildId: msg.member.guild.id,
-                    adapterCreator: msg.member.guild.voiceAdapterCreator
-                })
-                let newPlayer = createAudioPlayer()
-                let resource = createAudioResource(ytdl(url, {
-                    filter: "audioonly"
-                }))
-                await newPlayer.play(resource)
-                await connection.subscribe(newPlayer)
+                let songData = await playMusic(msg, player, nameByUser, MUSIC_TOKEN)
+                await msg.channel.send(`now playing: ${songData.title}`)
+                isPlaying = true
             }
             catch (e) {
                 console.log("error in recieving data")
                 console.log(e)
             }
+        }
+        else if (command === "pause") {
+            if (!isPlaying) {
+                await msg.channel.send("No music playing!!")
+                return
+            }
+            player.pause(true)
+            isPlaying = false
+            isPaused = true
+        }
+        else if (command === "resume") {
+            if (!isPaused) {
+                await msg.channel.send("No music paused!!")
+                return
+            }
+            player.unpause()
+            isPlaying = true
+            isPaused = false
         }
         else {
             let textChannel = msg.channel
