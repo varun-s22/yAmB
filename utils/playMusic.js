@@ -1,19 +1,15 @@
 const { joinVoiceChannel, createAudioResource } = require("@discordjs/voice")
 const ytdl = require("ytdl-core")
-const getMusic = require("../src/getMusic")
 
-async function playMusic(msg, newPlayer, nameByUser, MUSIC_TOKEN) {
-    let songData = await getMusic(nameByUser, MUSIC_TOKEN)
-    if (!songData) {
-        console.log("can't play song")
-        return false
-    }
+async function playMusic(newPlayer, playerData) {
+    let songData = playerData.songs[0]
     let url = `https://www.youtube.com/watch?v=${songData.id}`
     const connection = await joinVoiceChannel({
-        channelId: msg.member.voice.channel.id,
-        guildId: msg.member.guild.id,
-        adapterCreator: msg.member.guild.voiceAdapterCreator
+        channelId: playerData.voiceChannel.id,
+        guildId: playerData.guild.id,
+        adapterCreator: playerData.adapter
     })
+    playerData.connection = connection
     try {
         let resource = createAudioResource(ytdl(url, {
             filter: "audioonly"
@@ -31,7 +27,6 @@ async function playMusic(msg, newPlayer, nameByUser, MUSIC_TOKEN) {
         console.log("error while downloading song")
         console.log(e)
     }
-    return songData
 }
 
 module.exports = playMusic

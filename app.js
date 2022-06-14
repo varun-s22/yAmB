@@ -1,6 +1,7 @@
 const { Client, Intents } = require("discord.js")
 const { createAudioPlayer, AudioPlayerStatus, getVoiceConnection } = require("@discordjs/voice")
 const playMusic = require("./utils/playMusic")
+const getMusic = require("./src/getMusic")
 const fs = require("fs")
 const client = new Client({
     intents: [
@@ -41,6 +42,7 @@ client.on("messageCreate", async (msg) => {
         if (command === "ping" && args.length === 0)
             await msg.reply("pong!")
         else if (command === "play") {
+            let serverQueue = queue.get(msg.guild.id)
             if (!userVoiceChannel) {
                 await textChannel.send("You need to be in a Voice Channel, to execute this command")
             }
@@ -53,23 +55,47 @@ client.on("messageCreate", async (msg) => {
                 return
             }
             let nameByUser = args.join(" ")
-            let re = /https:\/\//
-            let isLink = nameByUser.match(re)
-            if (isLink) {
-                await textChannel.send("Sorry, currently we are not playing media from external links. :(")
-                return
-            }
             try {
-                let songData = await playMusic(msg, player, nameByUser, MUSIC_TOKEN)
+                let songData = await getMusic(nameByUser, MUSIC_TOKEN)
                 if (!songData) {
                     await textChannel.send("Sorry, could not find the media you've been looking")
                     return
                 }
-                await textChannel.send(`now playing: ${songData.title}`)
-                isPlaying = true
+                let re = /https:\/\//
+                let isLink = nameByUser.match(re)
+                if (isLink) {
+                    await textChannel.send("Sorry, currently we are not playing media from external links. :(")
+                    return
+                }
+                if (!serverQueue) {
+                    let thisServerQueue = {
+                        textChannel: textChannel,
+                        voiceChannel: userVoiceChannel,
+                        guild: msg.member.guild,
+                        adapter: msg.member.guild.voiceAdapterCreator,
+                        connection: null,
+                        songs: []
+                    }
+                    queue.set(msg.guild.id, thisServerQueue)
+                    thisServerQueue.songs.push(songData)
+                    try {
+                        await playMusic(player, thisServerQueue)
+
+                        await textChannel.send(`Now Playing: ${thisServerQueue.songs[0].title}`)
+                        isPlaying = true
+                    }
+                    catch (e) {
+                        console.log("error in recieving data")
+                        console.log(e)
+                    }
+                }
+                else {
+                    serverQueue.songs.push(songData)
+                    await textChannel.send(`Added ${songData.title} to the queue!!`)
+                }
             }
             catch (e) {
-                console.log("error in recieving data")
+                console.log("error while fetching song data")
                 console.log(e)
             }
         }
@@ -116,6 +142,27 @@ client.on("messageCreate", async (msg) => {
         }
         else {
             await textChannel.send("Unknown command!!")
+        }
+    }
+})
+player.on("stateChange", async (oldState, newState) => {
+    if (newState.status === "idle" && oldState.status === "playing") {
+        try {
+            let guild_id = player.subscribers[0].connection.joinConfig.guildId
+            let serverQueue = queue.get(guild_id)
+            serverQueue.songs.shift()
+            if (serverQueue.songs.length === 0) {
+                await serverQueue.textChannel.send("End of the queue!! :(")
+                return
+            }
+            else {
+                await playMusic(player, serverQueue)
+                await serverQueue.textChannel.send(`Now Playing : ${serverQueue.songs[0].title}`)
+            }
+        }
+        catch (e) {
+            console.log("error while switching songs in queue")
+            console.log(e)
         }
     }
 })
