@@ -1,8 +1,7 @@
 const { Client, Intents } = require("discord.js")
-const { createAudioPlayer, AudioPlayerStatus, getVoiceConnection } = require("@discordjs/voice")
+const { createAudioPlayer } = require("@discordjs/voice")
 const playMusic = require("./utils/playMusic")
 const getMusic = require("./src/getMusic")
-const fs = require("fs")
 const client = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
@@ -37,12 +36,13 @@ client.on("messageCreate", async (msg) => {
         const args = msg.content.slice(defaultPrefix.length).trim().split(' ')
         const command = args.shift().toLowerCase()
         const userVoiceChannel = msg.member.voice.channel
+        const userGuild = msg.guild
         let textChannel = msg.channel
 
         if (command === "ping" && args.length === 0)
             await msg.reply("pong!")
         else if (command === "play") {
-            let serverQueue = queue.get(msg.guild.id)
+            let serverQueue = queue.get(userGuild.id)
             if (!userVoiceChannel) {
                 await textChannel.send("You need to be in a Voice Channel, to execute this command")
             }
@@ -71,12 +71,12 @@ client.on("messageCreate", async (msg) => {
                     let thisServerQueue = {
                         textChannel: textChannel,
                         voiceChannel: userVoiceChannel,
-                        guild: msg.member.guild,
-                        adapter: msg.member.guild.voiceAdapterCreator,
+                        guild: userGuild,
+                        adapter: userGuild.voiceAdapterCreator,
                         connection: null,
                         songs: []
                     }
-                    queue.set(msg.guild.id, thisServerQueue)
+                    queue.set(userGuild.id, thisServerQueue)
                     thisServerQueue.songs.push(songData)
                     try {
                         await playMusic(player, thisServerQueue)
@@ -99,6 +99,14 @@ client.on("messageCreate", async (msg) => {
                 console.log(e)
             }
         }
+        else if (command === "np" || command === "nowPlaying") {
+            let serverQueue = queue.get(userGuild.id)
+            if (!serverQueue) {
+                await textChannel.send("No music playing!!")
+                return
+            }
+            await textChannel.send(`Now Playing : ${serverQueue.songs[0].title}`)
+        }
         else if (command === "pause") {
             if (!isPlaying) {
                 await textChannel.send("No music playing!!")
@@ -119,22 +127,63 @@ client.on("messageCreate", async (msg) => {
             isPaused = false
             await textChannel.send("Resumed!!")
         }
-        else if (command === "stop") {
-            if (!isPlaying) {
+        else if (command === "skip") {
+            let serverQueue = queue.get(userGuild.id)
+            if (!serverQueue) {
                 await textChannel.send("No music playing!!")
                 return
             }
             player.stop()
-            isPlaying = false
+        }
+        else if (command === "q" || command === "queue") {
+            let serverQueue = queue.get(userGuild.id)
+            if (!serverQueue) {
+                await textChannel.send("There's nothing playing in this server!!")
+                return
+            }
+            let q = serverQueue.songs
+            for (let songs of q) {
+                await textChannel.send(songs.title)
+            }
+        }
+        else if (command === "remove") {
+            if (args.length === 0) {
+                await textChannel.send("Please provide the argument.")
+                return
+            }
+            let argument = args.join(" ")
+            if (isNaN(argument)) {
+                await textChannel.send("Please enter a valid argument")
+                return
+            }
+            let serverQueue = queue.get(userGuild.id)
+            if (!serverQueue) {
+                await textChannel.send("No music playing, to remove")
+                return
+            }
+            let songNum = parseInt(argument)
+            if (songNum <= 0 || songNum > serverQueue.songs.length) {
+                await textChannel.send("Invalid choice")
+                return
+            }
+            if (songNum - 1 === 0) {
+                player.stop()
+                await textChannel.send(`Removed song : ${serverQueue.songs[0].title}`)
+                return
+            }
+            let deletedSong = serverQueue.songs.splice(songNum - 1, 1)
+            await textChannel.send(`Removed song : ${deletedSong[0].title}`)
         }
         else if (command === "dc" || command === "quit" || command === "disconnect") {
-            let currConnection = getVoiceConnection(msg.member.guild.id)
-            if (!currConnection) {
+            let serverQueue = queue.get(userGuild.id)
+            if (!serverQueue) {
                 await textChannel.send("I'm not in any Voice Channels. :(")
                 return
             }
+            let currConnection = serverQueue.connection
             player.stop()
             currConnection.disconnect()
+            queue.delete(userGuild.id)
             isPlaying = false
             isPaused = false
             await textChannel.send("Disconnected :(")
@@ -153,6 +202,8 @@ player.on("stateChange", async (oldState, newState) => {
             serverQueue.songs.shift()
             if (serverQueue.songs.length === 0) {
                 await serverQueue.textChannel.send("End of the queue!! :(")
+                serverQueue.connection.disconnect()
+                queue.delete(guild_id)
                 return
             }
             else {
