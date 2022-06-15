@@ -32,13 +32,16 @@ function createEmbed(arg) {
     embed.setColor("RANDOM")
     if (arg.title)
         embed.setTitle(arg.title)
+    if (arg.nowPlayingField)
+        embed.addField("Now Playing: ", arg.nowPlayingField)
+    if (arg.comingUpSongs)
+        embed.addField("Coming Up Next: ", arg.comingUpSongs)
     if (arg.description)
         embed.setDescription(arg.description)
     if (arg.thumbnail)
         embed.setThumbnail(arg.thumbnail)
     if (arg.extra)
         embed.addField("Song By: ", arg.extra)
-
     if (arg.footer) {
         embed.setFooter({
             text: arg.footer
@@ -46,6 +49,7 @@ function createEmbed(arg) {
     }
     return embed
 }
+
 client.on("ready", () => {
     console.log(`Logged in as ${client.user.tag}`)
 })
@@ -186,14 +190,21 @@ client.on("messageCreate", async (msg) => {
                 await textChannel.send({ embeds: [embed] })
                 return
             }
-            let q = serverQueue.songs
+            let q = serverQueue.songs.slice(1)
             let queueStr = ""
+            let i = 2
             for (let song of q) {
-                queueStr = queueStr + `${song.title} by ${song.authorChannel}\n`
+                queueStr = queueStr + `**${i}**  ` + `${song.title} by ${song.authorChannel}\n`
+                i++
             }
+            let nowPlayingSong = `${serverQueue.songs[0].title} by ${serverQueue.songs[0].authorChannel}`
             let embed = createEmbed({
                 title: "Queue",
-                description: queueStr
+                description: "Here are the songs you've added",
+                thumbnail: "https://media.discordapp.net/attachments/933824091482374166/986670789946376213/queueIcon.png",
+                comingUpSongs: queueStr,
+                nowPlayingField: nowPlayingSong,
+                footer: `Requested By: ${msg.author.username}`
             })
             await textChannel.send({ embeds: [embed] })
         }
