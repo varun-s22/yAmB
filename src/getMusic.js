@@ -15,7 +15,8 @@ let getMusic = async (songName, MUSIC_TOKEN) => {
             id: songInfo.id.videoId,
             title: songInfo.snippet.title,
             authorChannel: songInfo.snippet.channelTitle,
-            source: "YouTube"
+            source: "YouTube",
+            thumbnailHigh: songInfo.snippet.thumbnails.high.url,
         }
     }
     catch (e) {

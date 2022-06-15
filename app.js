@@ -1,4 +1,4 @@
-const { Client, Intents } = require("discord.js")
+const { Client, Intents, MessageEmbed } = require("discord.js")
 const { createAudioPlayer } = require("@discordjs/voice")
 const playMusic = require("./utils/playMusic")
 const getMusic = require("./src/getMusic")
@@ -27,6 +27,25 @@ function isMsgForBot(msg) {
     return true
 }
 
+function createEmbed(arg) {
+    const embed = new MessageEmbed()
+    embed.setColor("RANDOM")
+    if (arg.title)
+        embed.setTitle(arg.title)
+    if (arg.description)
+        embed.setDescription(arg.description)
+    if (arg.thumbnail)
+        embed.setThumbnail(arg.thumbnail)
+    if (arg.extra)
+        embed.addField("Song By: ", arg.extra)
+
+    if (arg.footer) {
+        embed.setFooter({
+            text: arg.footer
+        })
+    }
+    return embed
+}
 client.on("ready", () => {
     console.log(`Logged in as ${client.user.tag}`)
 })
@@ -40,7 +59,7 @@ client.on("messageCreate", async (msg) => {
         let textChannel = msg.channel
 
         if (command === "ping" && args.length === 0)
-            await msg.reply("pong!")
+            await msg.reply("Pong!")
         else if (command === "play") {
             let serverQueue = queue.get(userGuild.id)
             if (!userVoiceChannel) {
@@ -80,8 +99,14 @@ client.on("messageCreate", async (msg) => {
                     thisServerQueue.songs.push(songData)
                     try {
                         await playMusic(player, thisServerQueue)
-
-                        await textChannel.send(`Now Playing: ${thisServerQueue.songs[0].title}`)
+                        let embed = createEmbed({
+                            title: `Now Playing`,
+                            description: thisServerQueue.songs[0].title,
+                            thumbnail: thisServerQueue.songs[0].thumbnailHigh,
+                            extra: thisServerQueue.songs[0].authorChannel,
+                            footer: thisServerQueue.songs[0].source
+                        })
+                        await textChannel.send({ embeds: [embed] })
                         isPlaying = true
                     }
                     catch (e) {
@@ -91,7 +116,13 @@ client.on("messageCreate", async (msg) => {
                 }
                 else {
                     serverQueue.songs.push(songData)
-                    await textChannel.send(`Added ${songData.title} to the queue!!`)
+                    let embed = createEmbed({
+                        title: "Adding To Queue",
+                        description: songData.title,
+                        extra: songData.authorChannel,
+                        footer: songData.source
+                    })
+                    await textChannel.send({ embeds: [embed] })
                 }
             }
             catch (e) {
@@ -99,52 +130,72 @@ client.on("messageCreate", async (msg) => {
                 console.log(e)
             }
         }
-        else if (command === "np" || command === "nowPlaying") {
+        else if (command === "np" || command === "nowPlaying" && args.length === 0) {
             let serverQueue = queue.get(userGuild.id)
             if (!serverQueue) {
-                await textChannel.send("No music playing!!")
+                let embed = createEmbed({ title: "No Music Playing" })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
-            await textChannel.send(`Now Playing : ${serverQueue.songs[0].title}`)
+            let embed = createEmbed({
+                title: "Now Playing",
+                description: serverQueue.songs[0].title,
+                thumbnail: serverQueue.songs[0].thumbnailHigh,
+                extra: serverQueue.songs[0].authorChannel,
+                footer: serverQueue.songs[0].source
+            })
+            await textChannel.send({ embeds: [embed] })
         }
-        else if (command === "pause") {
+        else if (command === "pause" && args.length === 0) {
             if (!isPlaying) {
-                await textChannel.send("No music playing!!")
+                let embed = createEmbed({ title: "No Music Playing" })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
             player.pause(true)
             isPlaying = false
             isPaused = true
-            await textChannel.send("Paused!!")
+            let embed = createEmbed({ title: "Paused!!" })
+            await textChannel.send({ embeds: [embed] })
         }
-        else if (command === "resume") {
+        else if (command === "resume" && args.length === 0) {
             if (!isPaused) {
-                await textChannel.send("No music paused!!")
+                let embed = createEmbed({ title: "No Music Paused" })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
             player.unpause()
             isPlaying = true
             isPaused = false
-            await textChannel.send("Resumed!!")
+            let embed = createEmbed({ title: "Resumed!!" })
+            await textChannel.send({ embeds: [embed] })
         }
-        else if (command === "skip") {
+        else if (command === "skip" && args.length === 0) {
             let serverQueue = queue.get(userGuild.id)
             if (!serverQueue) {
-                await textChannel.send("No music playing!!")
+                let embed = createEmbed({ title: "No Music Playing" })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
             player.stop()
         }
-        else if (command === "q" || command === "queue") {
+        else if (command === "q" || command === "queue" && args.length === 0) {
             let serverQueue = queue.get(userGuild.id)
             if (!serverQueue) {
-                await textChannel.send("There's nothing playing in this server!!")
+                let embed = createEmbed({ title: "There is nothing playing in server!!" })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
             let q = serverQueue.songs
-            for (let songs of q) {
-                await textChannel.send(songs.title)
+            let queueStr = ""
+            for (let song of q) {
+                queueStr = queueStr + `${song.title} by ${song.authorChannel}\n`
             }
+            let embed = createEmbed({
+                title: "Queue",
+                description: queueStr
+            })
+            await textChannel.send({ embeds: [embed] })
         }
         else if (command === "remove") {
             if (args.length === 0) {
@@ -168,13 +219,22 @@ client.on("messageCreate", async (msg) => {
             }
             if (songNum - 1 === 0) {
                 player.stop()
-                await textChannel.send(`Removed song : ${serverQueue.songs[0].title}`)
+                let embed = createEmbed({
+                    title: "Removed Song :(",
+                    description: serverQueue.songs[0].title
+                })
+                await textChannel.send({ embeds: [embed] })
                 return
             }
+
             let deletedSong = serverQueue.songs.splice(songNum - 1, 1)
-            await textChannel.send(`Removed song : ${deletedSong[0].title}`)
+            let embed = createEmbed({
+                title: "Removed Song :(",
+                description: deletedSong[0].title
+            })
+            await textChannel.send({ embeds: [embed] })
         }
-        else if (command === "dc" || command === "quit" || command === "disconnect") {
+        else if (command === "dc" || command === "quit" || command === "disconnect" && args.length === 0) {
             let serverQueue = queue.get(userGuild.id)
             if (!serverQueue) {
                 await textChannel.send("I'm not in any Voice Channels. :(")
@@ -201,14 +261,22 @@ player.on("stateChange", async (oldState, newState) => {
             let serverQueue = queue.get(guild_id)
             serverQueue.songs.shift()
             if (serverQueue.songs.length === 0) {
-                await serverQueue.textChannel.send("End of the queue!! :(")
+                let embed = createEmbed({ title: "End of Queue :(" })
+                await serverQueue.textChannel.send({ embeds: [embed] })
                 serverQueue.connection.disconnect()
                 queue.delete(guild_id)
                 return
             }
             else {
                 await playMusic(player, serverQueue)
-                await serverQueue.textChannel.send(`Now Playing : ${serverQueue.songs[0].title}`)
+                let embed = createEmbed({
+                    title: "Now Playing",
+                    description: serverQueue.songs[0].title,
+                    thumbnail: serverQueue.songs[0].thumbnailHigh,
+                    extra: serverQueue.songs[0].authorChannel,
+                    footer: serverQueue.songs[0].source
+                })
+                await serverQueue.textChannel.send({ embeds: [embed] })
             }
         }
         catch (e) {
