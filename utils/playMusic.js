@@ -10,21 +10,15 @@ async function playMusic(newPlayer, playerData) {
         adapterCreator: playerData.adapter
     })
     playerData.connection = connection
+    let resource = createAudioResource(ytdl(url, {
+        filter: "audioonly"
+    }))
     try {
-        let resource = createAudioResource(ytdl(url, {
-            filter: "audioonly"
-        }))
-        try {
-            await newPlayer.play(resource)
-            await connection.subscribe(newPlayer)
-        }
-        catch (e) {
-            console.log("error playing song")
-            console.log(e)
-        }
+        await newPlayer.play(resource)
+        await connection.subscribe(newPlayer)
     }
     catch (e) {
-        console.log("error while downloading song")
+        console.log("error playing song")
         console.log(e)
     }
 }
