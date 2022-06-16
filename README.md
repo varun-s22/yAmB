@@ -16,6 +16,26 @@ You can find more about them using help command on Discord.
 
 ## Setup
 
+There are 2 ways to host in on your machine
+<br>
+<br>
+
+
+1) Host via Docker
+
+
+If you have Docker on your machine, you need to pull the image and run it
+```
+docker run --env-file .env reputation22/music-bot
+```
+
+To run the image, it requires a `.env` file, which has API secrets, like `DISCORD_TOKEN` and `YOUTUBE_KEY`. 
+
+<br>
+
+2) Host it Locally
+
+
 To host it locally on your machine, 
 
 Install [NodeJs](https://nodejs.org/en/download/)
