@@ -1,7 +1,9 @@
-const { Client, Intents, MessageEmbed } = require("discord.js")
+const { Client, Intents, MessageAttachment } = require("discord.js")
 const { createAudioPlayer } = require("@discordjs/voice")
 const playMusic = require("./utils/playMusic")
 const getMusic = require("./src/getMusic")
+const createEmbed = require("./utils/createEmbed")
+const isYoutubeLink = require("./utils/isYoutubeLink")
 const client = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
@@ -27,28 +29,7 @@ function isMsgForBot(msg) {
     return true
 }
 
-function createEmbed(arg) {
-    const embed = new MessageEmbed()
-    embed.setColor("RANDOM")
-    if (arg.title)
-        embed.setTitle(arg.title)
-    if (arg.nowPlayingField)
-        embed.addField("Now Playing: ", arg.nowPlayingField)
-    if (arg.comingUpSongs)
-        embed.addField("Coming Up Next: ", arg.comingUpSongs)
-    if (arg.description)
-        embed.setDescription(arg.description)
-    if (arg.thumbnail)
-        embed.setThumbnail(arg.thumbnail)
-    if (arg.extra)
-        embed.addField("Song By: ", arg.extra)
-    if (arg.footer) {
-        embed.setFooter({
-            text: arg.footer
-        })
-    }
-    return embed
-}
+
 
 client.on("ready", () => {
     console.log(`Logged in as ${client.user.tag}`)
@@ -64,6 +45,24 @@ client.on("messageCreate", async (msg) => {
 
         if (command === "ping" && args.length === 0)
             await msg.reply("Pong!")
+        else if (command === "help" && args.length === 0) {
+            let iconLink = new MessageAttachment("./images/botIcon.png")
+            let embed = createEmbed({
+                title: "Help command!!",
+                pingCommand: "ping",
+                playCommand: "play",
+                pauseCommand: "pause",
+                resumeCommand: "resume",
+                skipCommand: "skip",
+                nowPlayingCommand: "np",
+                queueCommand: "q",
+                removeCommand: "remove",
+                leaveCommand: "dc",
+                helpCommand: "help"
+            })
+            embed.setThumbnail("attachment://botIcon.png")
+            await textChannel.send({ embeds: [embed], files: [iconLink] })
+        }
         else if (command === "play") {
             let serverQueue = queue.get(userGuild.id)
             if (!userVoiceChannel) {
@@ -78,18 +77,32 @@ client.on("messageCreate", async (msg) => {
                 return
             }
             let nameByUser = args.join(" ")
+            let songData = {}
             try {
-                let songData = await getMusic(nameByUser, MUSIC_TOKEN)
+                let re = /https:\/\//
+                let isLink = nameByUser.match(re)
+                if (isLink) {
+                    if (!isYoutubeLink(nameByUser)) {
+                        await textChannel.send("Sorry, currently we are not playing media from external links. :(")
+                        return
+                    }
+                    let songId = isYoutubeLink(nameByUser)
+                    songData = {
+                        id: songId,
+                        title: "Youtube Video",
+                        authorChannel: "External Youtube Link",
+                        source: "YouTube",
+                        thumbnailHigh: "https://cdn.discordapp.com/attachments/933824091482374166/991319195604222102/unknown.png"
+                    }
+                }
+                else {
+                    songData = await getMusic(nameByUser, MUSIC_TOKEN)
+                }
                 if (!songData) {
                     await textChannel.send("Sorry, could not find the media you've been looking")
                     return
                 }
-                let re = /https:\/\//
-                let isLink = nameByUser.match(re)
-                if (isLink) {
-                    await textChannel.send("Sorry, currently we are not playing media from external links. :(")
-                    return
-                }
+
                 if (!serverQueue) {
                     let thisServerQueue = {
                         textChannel: textChannel,
@@ -194,19 +207,20 @@ client.on("messageCreate", async (msg) => {
             let queueStr = ""
             let i = 2
             for (let song of q) {
-                queueStr = queueStr + `**${i}**  ` + `${song.title} by ${song.authorChannel}\n`
+                queueStr = queueStr + `**${i})**   ` + `${song.title} by ${song.authorChannel}\n`
                 i++
             }
             let nowPlayingSong = `${serverQueue.songs[0].title} by ${serverQueue.songs[0].authorChannel}`
+            let queueIconLink = new MessageAttachment("./images/queueIcon.png")
             let embed = createEmbed({
                 title: "Queue",
                 description: "Here are the songs you've added",
-                thumbnail: "https://media.discordapp.net/attachments/933824091482374166/986670789946376213/queueIcon.png",
                 comingUpSongs: queueStr,
                 nowPlayingField: nowPlayingSong,
                 footer: `Requested By: ${msg.author.username}`
             })
-            await textChannel.send({ embeds: [embed] })
+            embed.setThumbnail("attachment://queueIcon.png")
+            await textChannel.send({ embeds: [embed], files: [queueIconLink] })
         }
         else if (command === "remove") {
             if (args.length === 0) {

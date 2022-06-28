@@ -11,7 +11,13 @@ async function playMusic(newPlayer, playerData) {
     })
     playerData.connection = connection
     let resource = createAudioResource(ytdl(url, {
-        filter: "audioonly"
+        filter: "audio",
+        fmt: "mp3",
+        highWaterMark: 1 << 62,
+        liveBuffer: 1 << 62,
+        dlChunkSize: 0, //disabling chunking is recommended in discord bot
+        bitrate: 128,
+        quality: "lowestaudio",
     }))
     try {
         await newPlayer.play(resource)
