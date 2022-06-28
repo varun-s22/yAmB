@@ -44,7 +44,7 @@ client.on("messageCreate", async (msg) => {
         let textChannel = msg.channel
 
         if (command === "ping" && args.length === 0)
-            await msg.reply("Pong!")
+            await msg.reply(`🏓 Latency: ${Date.now() - msg.createdTimestamp}ms`)
         else if (command === "help" && args.length === 0) {
             let iconLink = new MessageAttachment("./images/botIcon.png")
             let embed = createEmbed({
@@ -58,7 +58,8 @@ client.on("messageCreate", async (msg) => {
                 queueCommand: "q",
                 removeCommand: "remove",
                 leaveCommand: "dc",
-                helpCommand: "help"
+                helpCommand: "help",
+                footer: `Requested By: ${msg.author.username}`
             })
             embed.setThumbnail("attachment://botIcon.png")
             await textChannel.send({ embeds: [embed], files: [iconLink] })
@@ -92,11 +93,12 @@ client.on("messageCreate", async (msg) => {
                         title: "Youtube Video",
                         authorChannel: "External Youtube Link",
                         source: "YouTube",
-                        thumbnailHigh: "https://cdn.discordapp.com/attachments/933824091482374166/991319195604222102/unknown.png"
+                        thumbnailHigh: "https://cdn.discordapp.com/attachments/933824091482374166/991319195604222102/unknown.png",
+                        requestedBy: msg.author
                     }
                 }
                 else {
-                    songData = await getMusic(nameByUser, MUSIC_TOKEN)
+                    songData = await getMusic(nameByUser, MUSIC_TOKEN, msg.author)
                 }
                 if (!songData) {
                     await textChannel.send("Sorry, could not find the media you've been looking")
@@ -121,7 +123,8 @@ client.on("messageCreate", async (msg) => {
                             description: thisServerQueue.songs[0].title,
                             thumbnail: thisServerQueue.songs[0].thumbnailHigh,
                             extra: thisServerQueue.songs[0].authorChannel,
-                            footer: thisServerQueue.songs[0].source
+                            footer: thisServerQueue.songs[0].source,
+                            songAddedBy: thisServerQueue.songs[0].requestedBy.toString()
                         })
                         await textChannel.send({ embeds: [embed] })
                         isPlaying = true
@@ -137,7 +140,8 @@ client.on("messageCreate", async (msg) => {
                         title: "Adding To Queue",
                         description: songData.title,
                         extra: songData.authorChannel,
-                        footer: songData.source
+                        footer: songData.source,
+                        songAddedBy: songData.requestedBy.toString()
                     })
                     await textChannel.send({ embeds: [embed] })
                 }
@@ -159,7 +163,8 @@ client.on("messageCreate", async (msg) => {
                 description: serverQueue.songs[0].title,
                 thumbnail: serverQueue.songs[0].thumbnailHigh,
                 extra: serverQueue.songs[0].authorChannel,
-                footer: serverQueue.songs[0].source
+                footer: serverQueue.songs[0].source,
+                songAddedBy: serverQueue.songs[0].requestedBy.toString()
             })
             await textChannel.send({ embeds: [embed] })
         }
@@ -207,10 +212,10 @@ client.on("messageCreate", async (msg) => {
             let queueStr = ""
             let i = 2
             for (let song of q) {
-                queueStr = queueStr + `**${i})**   ` + `${song.title} by ${song.authorChannel}\n`
+                queueStr = queueStr + `**${i}).**   ` + `${song.title} **by** ${song.authorChannel}   [  ${song.requestedBy.toString()}]\n`
                 i++
             }
-            let nowPlayingSong = `${serverQueue.songs[0].title} by ${serverQueue.songs[0].authorChannel}`
+            let nowPlayingSong = `${serverQueue.songs[0].title} **by** ${serverQueue.songs[0].authorChannel}   [  ${serverQueue.songs[0].requestedBy.toString()}]`
             let queueIconLink = new MessageAttachment("./images/queueIcon.png")
             let embed = createEmbed({
                 title: "Queue",

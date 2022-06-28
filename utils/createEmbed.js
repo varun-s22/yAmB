@@ -6,7 +6,7 @@ let createEmbed = (arg) => {
     if (arg.title)
         embed.setTitle(arg.title)
     if (arg.nowPlayingField)
-        embed.addField("Now Playing: ", arg.nowPlayingField)
+        embed.addField("🔊Now Playing: ", arg.nowPlayingField)
     if (arg.comingUpSongs)
         embed.addField("Coming Up Next: ", arg.comingUpSongs)
     if (arg.description)
@@ -14,7 +14,9 @@ let createEmbed = (arg) => {
     if (arg.thumbnail)
         embed.setThumbnail(arg.thumbnail)
     if (arg.extra)
-        embed.addField("Song By: ", arg.extra)
+        embed.addField("Song By: ", arg.extra, true)
+    if (arg.songAddedBy)
+        embed.addField("Added By: ", arg.songAddedBy, true)
     if (arg.footer) {
         embed.setFooter({
             text: arg.footer
